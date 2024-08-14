@@ -724,6 +724,20 @@ public class CommandLineRunner extends AbstractCommandLineRunner<Compiler, Compi
                 + "in different projects can have different translations.")
     private @Nullable String translationsProject = null;
 
+    @Option(name = "--one_translation_calls",
+            handler = BooleanOptionHandler.class,
+            usage = "Use the OneCasino translations calls. " +
+                    "All the calls to goog.getMsg will be converted " +
+                    "to window.oneMsg calls and the text will be replaced " +
+                    "with the packed id.")
+    private boolean oneTranslationCalls = false;
+
+    @Option(name = "--update_runtime_php",
+            usage = "Update the runtime PHP with the latest goog.getMsg calls" +
+                    "found in the source javascripts." +
+                    "All sources will be handled, not only files used to build the entry points")
+    private String updateRuntimePHP = "";
+
     @Option(
         name = "--flagfile",
         hidden = true,
@@ -1025,6 +1039,7 @@ public class CommandLineRunner extends AbstractCommandLineRunner<Compiler, Compi
                     "emit_use_strict",
                     "export_local_property_definitions",
                     "formatting",
+                    "one_translation_calls",
                     "generate_exports",
                     "isolation_mode",
                     "output_wrapper",
@@ -1075,6 +1090,7 @@ public class CommandLineRunner extends AbstractCommandLineRunner<Compiler, Compi
                     "browser_featureset_year",
                     "charset",
                     "checks_only",
+                    "update_runtime_php",
                     "define",
                     "flagfile",
                     "help",
@@ -1748,12 +1764,14 @@ public class CommandLineRunner extends AbstractCommandLineRunner<Compiler, Compi
       final CommandLineConfig config = getCommandLineConfig();
       config
           .setPrintVersion(flags.version)
+          .setUpdateRuntimePHP(flags.updateRuntimePHP)
           .setPrintTree(flags.printTree)
           .setPrintTreeJson(flags.printTreeJson)
           .setPrintAst(flags.printAst)
           .setJscompDevMode(flags.jscompDevMode)
           .setLoggingLevel(flags.loggingLevel)
           .setExterns(flags.externs)
+          .setJsFlags(flags.js)
           .setMixedJsSources(mixedSources)
           .setDefaultToStdin()
           .setJsOutputFile(flags.jsOutputFile)
@@ -1791,6 +1809,7 @@ public class CommandLineRunner extends AbstractCommandLineRunner<Compiler, Compi
           .setJsonStreamMode(flags.jsonStreamMode)
           .setErrorFormat(flags.errorFormat);
 
+        
       String stage1RestoreFile = flags.restoreStage1FromFile;
       if (stage1RestoreFile == null) {
         // TODO(bradfordcsmith): deprecate and remove this flag
@@ -1945,6 +1964,9 @@ public class CommandLineRunner extends AbstractCommandLineRunner<Compiler, Compi
     options.removeJ2clAsserts = flags.removeJ2cLAsserts;
 
     options.renamePrefix = flags.renamePrefix;
+
+    options.oneTranslationCalls = flags.oneTranslationCalls;
+    options.updateRuntimePHP = flags.updateRuntimePHP;
 
     options.renamePrefixNamespace = flags.renamePrefixNamespace;
 

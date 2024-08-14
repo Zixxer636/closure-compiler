@@ -528,6 +528,12 @@ public class CompilerOptions implements Serializable {
   /** Controls which properties get renamed. */
   PropertyRenamingPolicy propertyRenaming;
 
+  /** Controls goog.getMsg renaming. */
+  public boolean oneTranslationCalls;
+
+  /** Controls goog.getMsg renaming. */
+  public String updateRuntimePHP;
+
   /** Controls if property renaming only compilation mode is needed. */
   private boolean propertyRenamingOnlyCompilationMode;
 

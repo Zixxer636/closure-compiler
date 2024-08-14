@@ -79,6 +79,12 @@ WindowSessionStorage.prototype.sessionStorage;
 Window.prototype.sessionStorage;
 
 /**
+ * @type {!Storage}
+ * @suppress {duplicate}
+ */
+var sessionStorage;
+
+/**
  * @interface
  * @see https://www.w3.org/TR/webstorage/#the-localstorage-attribute
  */
@@ -95,6 +101,12 @@ WindowLocalStorage.prototype.localStorage;
  * @type {!Storage}
  */
 Window.prototype.localStorage;
+
+/**
+ * @type {!Storage}
+ * @suppress {duplicate}
+ */
+var localStorage;
 
 /**
  * @record

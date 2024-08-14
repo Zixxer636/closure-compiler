@@ -40,7 +40,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.Base64;
 import java.util.Set;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import com.google.javascript.rhino.IR;
 import org.jspecify.nullness.Nullable;
 
 /**
@@ -71,6 +75,40 @@ public final class ReplaceMessages {
     this.strictReplacement = strictReplacement;
   }
 
+    /**
+     * Will pack the specified id into a string.
+     *
+     * Is similar to PHP:
+     *  return trim(base64_encode(pack('P' ,$id)), '=');
+     *
+     * @param id the identifier to pack
+     * @return the packed id
+     */
+    public static String getPackedId(String id) {
+      long longId = Long.parseUnsignedLong(id);
+
+      // Get bytes
+      ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
+      buffer.order(ByteOrder.LITTLE_ENDIAN);
+      buffer.putLong(longId);
+      byte[] longBytes = buffer.array();
+
+      // Base 64 encode
+      String s = new String(Base64.getEncoder().encode(longBytes));
+
+      // Remove trailing '=' and return string
+      int index;
+      for (index = s.length() - 1; index >= 0; index--) {
+        if (s.charAt(index) != '=') {
+          break;
+        }
+      }
+
+      // System.err.println("getPackedId" + id + " out:" + s.substring(0, index + 1));
+
+      return s.substring(0, index + 1);
+    }
+    
   /**
    * When the returned pass is executed, the original `goog.getMsg()` etc. calls will be replaced
    * with a form that will survive unchanged through optimizations unless eliminated as unused.
@@ -366,6 +404,38 @@ public final class ReplaceMessages {
       try {
         final JsMessage originalMsg = protectedJsMessage.jsMessage;
         final Node nodeToReplace = protectedJsMessage.definitionNode;
+        final MsgOptions msgOptions = protectedJsMessage.getMsgOptions();
+        final Map<String, Node> placeholderMap =
+            extractPlaceholderValuesMapOrThrow(protectedJsMessage.substitutionsNode);
+
+        // Get packed id
+        CompilerOptions compilerOptions = compiler.getOptions();
+        if (compilerOptions.oneTranslationCalls) {
+          // Go through the constructStringExprNode code but ignore the output string.
+          // This way the string and placeholder (values) will be validated.
+          constructStringExprNode(originalMsg, placeholderMap, msgOptions, nodeToReplace);
+
+          // System.err.println("visitMsgDefinition originalMsg" + originalMsg);
+          
+          JsMessage.IdGenerator gen = new GoogleJsMessageIdGenerator(compilerOptions.tcProjectId);
+          String id = gen.generateId(originalMsg.getId(), originalMsg.getParts());
+          String packedId = ReplaceMessages.getPackedId(id);
+
+          // Standard call
+          Node finalMsgConstructionExpression = IR.call(IR.name("oneMsg"), IR.string(packedId));
+
+          if (protectedJsMessage.substitutionsNode != null) {
+            // Copy placeholder values
+            finalMsgConstructionExpression.addChildToBack(protectedJsMessage.substitutionsNode.cloneTree());
+          }
+
+          finalMsgConstructionExpression.srcrefTreeIfMissing(nodeToReplace);
+          nodeToReplace.replaceWith(finalMsgConstructionExpression);
+          compiler.reportChangeToEnclosingScope(finalMsgConstructionExpression);
+
+          return;
+        }
+
         final JsMessage translatedMsg =
             lookupMessage(protectedJsMessage.definitionNode, bundle, originalMsg);
         final JsMessage msgToUse;
@@ -380,9 +450,7 @@ public final class ReplaceMessages {
           }
           msgToUse = originalMsg;
         }
-        final MsgOptions msgOptions = protectedJsMessage.getMsgOptions();
-        final Map<String, Node> placeholderMap =
-            extractPlaceholderValuesMapOrThrow(protectedJsMessage.substitutionsNode);
+        // Original behaviour
         final Node finalMsgConstructionExpression =
             constructStringExprNode(msgToUse, placeholderMap, msgOptions, nodeToReplace);
         finalMsgConstructionExpression.srcrefTreeIfMissing(nodeToReplace);
@@ -630,6 +698,27 @@ public final class ReplaceMessages {
       try {
         // Build the replacement tree.
         newValue = constructStringExprNode(replacement, placeholderValueMap, options, msgNode);
+
+         // Get packed id
+        CompilerOptions compilerOptions = compiler.getOptions();
+        if (compilerOptions.oneTranslationCalls) {
+          // System.err.println("oneTranslationCalls" + message.toString());
+
+          JsMessage.IdGenerator gen = new GoogleJsMessageIdGenerator(compilerOptions.tcProjectId);
+          String id = gen.generateId(message.getId(), message.getParts());
+
+          String packedId = ReplaceMessages.getPackedId(id);
+
+          // Get the elements, goog.getMsg and the text content
+          Node getMsg = msgNode.getFirstChild();
+          Node originalString = getMsg.getNext();
+
+          // And replace them with the oneMsg call and id
+          getMsg.replaceWith(IR.name("oneMsg"));
+          originalString.replaceWith(IR.string(packedId));
+
+          newValue = msgNode;
+        }
       } catch (MalformedException e) {
         compiler.report(JSError.make(e.getNode(), MESSAGE_TREE_MALFORMED, e.getMessage()));
         newValue = msgNode;

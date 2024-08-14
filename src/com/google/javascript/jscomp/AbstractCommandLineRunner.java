@@ -53,6 +53,7 @@ import com.google.javascript.jscomp.deps.ModuleLoader;
 import com.google.javascript.jscomp.deps.SourceCodeEscapers;
 import com.google.javascript.jscomp.ijs.IjsErrors;
 import com.google.javascript.jscomp.parsing.Config;
+import com.google.javascript.jscomp.ExtractMessages;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.StaticSourceFile.SourceKind;
 import com.google.javascript.rhino.TokenStream;
@@ -1269,6 +1270,11 @@ public abstract class AbstractCommandLineRunner<A extends Compiler, B extends Co
 
     compiler.initOptions(options);
 
+    if (config.updateRuntimePHP != "") {
+      new ExtractMessages(compiler, config.jsSources, config.updateRuntimePHP);
+      return 0;
+    }
+
     List<SourceFile> sources =
         createSourceInputs(jsChunkSpecs, config.mixedJsSources, jsonFiles, config.moduleRoots);
 
@@ -2484,6 +2490,13 @@ public abstract class AbstractCommandLineRunner<A extends Compiler, B extends Co
       return this;
     }
 
+    private String updateRuntimePHP;
+    @CanIgnoreReturnValue
+    CommandLineConfig setUpdateRuntimePHP(String x) {
+      this.updateRuntimePHP = x;
+      return this;
+    }
+
     private boolean printTree = false;
     private boolean printTreeJson = false;
 
@@ -2540,6 +2553,17 @@ public abstract class AbstractCommandLineRunner<A extends Compiler, B extends Co
       this.externs.addAll(externs);
       return this;
     }
+
+    private final List<String> jsSources = new ArrayList<>();
+
+    /** The JavaScript source file names, including .js and .zip files. You may specify multiple. */
+    @CanIgnoreReturnValue
+    public CommandLineConfig setJsFlags(List<String> jsSources) {
+      this.jsSources.clear();
+      this.jsSources.addAll(jsSources);
+      return this;
+    }
+
 
     private final List<FlagEntry<JsSourceType>> mixedJsSources = new ArrayList<>();
 

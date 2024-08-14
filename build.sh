@@ -1,0 +1,1 @@
+bazelisk build //:compiler_uberjar_deploy.jar && cp bazel-bin/compiler_uberjar_deploy.jar ~/one/one-site/library/closure-library/compilers/closure-compiler-one-v20231112.jar
